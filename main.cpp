@@ -5,6 +5,12 @@
 #include <memory>
 #include <utility>
 #include <type_traits>
+#include <stack>
+#include <vector>
+#include <optional>
+#include <functional>
+#include <algorithm>
+#include <cctype>
 
 // helper type for the visitor #4
 template<class... Ts>
@@ -20,58 +26,68 @@ auto match(T&& value, Ts&&... args) -> decltype(auto)
 {
     return std::visit(visitor { std::forward<Ts>(args)... } , std::forward<T>(value));
 }
-struct List;
 
-using listptr_t = std::shared_ptr<List>;
 
 enum class KeyWord 
 {
-  Plus,
-  Minus,
-  Times,
-  Div
+    Plus,
+    Minus,
+    Times,
+    Div
 };
 
 std::string keyword_to_string(KeyWord word)
 {
-  switch (word) {
-    case KeyWord::Plus:  return "+"; break;
-    case KeyWord::Minus: return "-"; break;
-    case KeyWord::Times: return "*"; break;
-    case KeyWord::Div:   return "/"; break;
-  }
+    switch (word) {
+          case KeyWord::Plus:  return "+";
+          case KeyWord::Minus: return "-";
+          case KeyWord::Times: return "*";
+          case KeyWord::Div:   return "/";
+    }
+    throw "unreachable";
+}
+std::optional<KeyWord> is_keyword(std::string const & str)
+{
+  if(str == "+") return KeyWord::Plus;
+  if(str == "-") return KeyWord::Minus;
+  if(str == "*") return KeyWord::Times;
+  if(str == "/") return KeyWord::Div;
+  return std::nullopt;
 }
 
 struct Symbol { std::string value; };
 
-using value_t = std::variant<int, double, bool, std::string, Symbol, KeyWord, listptr_t>;
+struct LispValue;
 
-std::string list_to_string(listptr_t list);
+using list_t = std::shared_ptr<std::vector<LispValue>>;
+
+using value_t = std::variant<int64_t, double, bool, std::string, Symbol, KeyWord, list_t>;
+
+std::string list_to_string(list_t list);
 
 
-std::string to_string_with_escape_chars(std::string str)
+std::string to_string_with_escape_chars(std::string const &str)
 {
-  std::string result;
-  result.reserve(str.length() + 2);
-  result += "\"";
-  for (char ch : str) 
-  {
-    switch (ch) {
-    case '\0' : result += "\\0" ; break;
-    case '\b' : result += "\\b" ; break;
-    case '\n' : result += "\\n" ; break;
-    case '\t' : result += "\\t" ; break;
-    case '\a' : result += "\\a" ; break;
-    case '\f' : result += "\\f" ; break;
-    case '\r' : result += "\\r" ; break;
-    case '\v' : result += "\\v" ; break;
-    case '\"' : result += "\\\""; break;
-    case '\\' : result += "\\\\"; break;
-    default: result += ch; break;
+    std::string result;
+    result.reserve(str.length() + 2);
+    result += "\"";
+    for (char ch : str) {
+        switch (ch) {
+            case '\0' : result += "\\0" ; break;
+            case '\b' : result += "\\b" ; break;
+            case '\n' : result += "\\n" ; break;
+            case '\t' : result += "\\t" ; break;
+            case '\a' : result += "\\a" ; break;
+            case '\f' : result += "\\f" ; break;
+            case '\r' : result += "\\r" ; break;
+            case '\v' : result += "\\v" ; break;
+            case '\"' : result += "\\\""; break;
+            case '\\' : result += "\\\\"; break;
+            default: result += ch; break;
+        }
     }
-  }
-  result += "\"";
-  return result; 
+    result += "\"";
+    return result; 
 }
 
 
@@ -84,59 +100,168 @@ struct LispValue
     operator std::string()
     {
         return match(value, 
-            [](listptr_t x)           { return list_to_string(x);                 },
-            [](Symbol x)              { return x.value;                           },
-            [](KeyWord x)             { return keyword_to_string(x);              },
-            [](std::string const & x) { return to_string_with_escape_chars(x);    },
-            [](bool x)                { return std::string{x ? "true" : "false"}; },
-            [](auto x)                { return std::to_string(x);                 }
+            [](list_t x)                { return list_to_string(x);                 },
+            [](Symbol x)                { return x.value;                           },
+            [](KeyWord x)               { return keyword_to_string(x);              },
+            [](std::string const & x)   { return to_string_with_escape_chars(x);    },
+            [](bool x)                  { return std::string{x ? "true" : "false"}; },
+            [](auto x)                  { return std::to_string(x);                 }
         );
     }
     
     value_t value;
 };
 
-struct List
+std::string list_to_string(list_t list)
 {
-    LispValue car;
-    listptr_t cdr;
-};
-
-std::string list_to_string(listptr_t list)
-{
-  std::string result;
-  result.reserve(500);
-  result += "(";
-  while(true){
-    result += static_cast<std::string>(list->car);
-    if((list = list->cdr)) result += " ";
-    else break;
-  }
-  return result += ")";
+    if (list->size() == 0) return "( )";
+    std::string result;
+    result.reserve(500);
+    result += "(";
+    for(size_t i = 0; i < list->size() - 1; ++i) result += static_cast<std::string>((*list)[i]) += " ";
+    result += static_cast<std::string>((*list)[list->size() - 1]) += ")";
+    return result;
 }
 
 
 
+std::optional<int64_t> is_int(std::string const & str)
+{
+  if(std::all_of(str.begin(), str.end(),
+  [](const char ch) {return std::isdigit(static_cast<unsigned char>(ch));})){
+    return std::stoll(str);
+  }
+  return std::nullopt;
+}
 
 
-listptr_t node(value_t value, listptr_t tail){
-  return std::make_shared<List>(LispValue{value}, tail);
+std::optional<double> is_float(std::string const & str)
+{
+  bool was_dot = false;
+  for(const char c : str){
+    if(!was_dot && c == '.'){
+      was_dot = true;
+      continue;
+    }
+    if(!std::isdigit(static_cast<unsigned char>(c))){
+      return std::nullopt;
+    }
+  }
+  return std::stod(str);
+}
+
+LispValue parse_string(std::string const & input)
+{
+
+  std::optional<value_t> obj;
+  std::stack<list_t> lists_stack;
+  for(size_t i = 0; i < input.length(); ++i)
+  {
+    auto action = obj
+      ? std::function{[&lists_stack](value_t val){
+          if(!lists_stack.empty())
+              lists_stack.top()->emplace_back(val);
+          else throw std::runtime_error("invalid syntax");
+        }}
+      : std::function{[&obj](value_t val){ obj = val;}};
+    switch(input[i])
+    {
+      case ' ':
+      case '\n':
+      case '\r':
+      continue;
+      case '(':
+      {
+        
+        value_t list {std::make_shared<std::vector<LispValue>>()};
+        action(list);
+        lists_stack.push(std::get<list_t>(list));
+        break;
+      }
+      case ')': 
+      {
+        lists_stack.pop();
+        break;
+      }
+
+      case '"':
+      {
+        std::string str;
+        size_t j = i + 1;
+        for(;j < input.length() && input[j] != '"'; ++j)
+          if(input[j] == '\\')
+          {
+            switch(input[j + 1]){
+              case '0': str += '\0'; break;  case 'a' : str += '\a'; break;
+              case 'b': str += '\b'; break;  case 'f' : str += '\f'; break;
+              case 'n': str += '\n'; break;  case 'r' : str += '\r'; break;
+              case 't': str += '\t'; break;  case 'v' : str += '\v'; break;
+              case '"': str += '\"'; break;  case '\\': str += '\\'; break;
+            }
+            ++j;
+          }
+          else str += input[j];
+        i = j;
+        action(str);
+        break;
+      }
+
+      default:
+      {
+        std::string str;
+        for(;i < input.length() 
+          && input[i] != '(' 
+          && input[i] != ')' 
+          && input[i] != ' ' 
+          && input[i] != '\r' 
+          && input[i] != '\n' 
+          && input[i] != '"' ; ++i)
+        {
+          str +=input[i];
+        } 
+        --i;
+        if(str.empty()) break;
+        if(auto keyword = is_keyword(str))
+        {
+          action(keyword.value());
+          break;
+        }
+        if(auto integer = is_int(str))
+        {
+          action(integer.value());
+          break;
+        }
+        if(auto floating = is_float(str)){
+          action(floating.value());
+          break;
+        }
+        if(str == "true"){
+          action(true);
+          break;
+        }
+        if(str == "false"){
+          action(false);
+          break;
+        }
+        action(Symbol{str});
+        break;
+      }
+    }
+  }
+  if(!obj) throw std::runtime_error("kek");
+  return  obj.value();
+}
+
+template<typename ...Arg>
+list_t list(Arg && ... args )
+{
+  return { LispValue{std::forward<Arg>(args)}...};
 }
 
 int main()
 {
-    LispValue l{
-      node(
-        node("qwe\n\rt\a\by"
-        , nullptr
-        )
-        , node(Symbol{"symbol"}
-        , node(node(node(node(node(4,nullptr),nullptr),nullptr),nullptr)
-        , node(4.3
-        , node(15
-        , nullptr))))
-      )
-    };
-    
+    std::string str{"(10 2 4 (5 symbol true) \"string\" 5.6)"};
+    std::cout << str << '\n';
+    LispValue l = parse_string(str);
     std::cout << static_cast<std::string>(l) << '\n';
 }
