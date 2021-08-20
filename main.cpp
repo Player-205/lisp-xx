@@ -11,6 +11,7 @@
 #include <functional>
 #include <algorithm>
 #include <cctype>
+#include <numeric>
 
 // helper type for the visitor #4
 template<class... Ts>
@@ -114,12 +115,18 @@ struct LispValue
 
 std::string list_to_string(list_t list)
 {
-    if (list->size() == 0) return "( )";
     std::string result;
     result.reserve(500);
     result += "(";
-    for(size_t i = 0; i < list->size() - 1; ++i) result += static_cast<std::string>((*list)[i]) += " ";
-    result += static_cast<std::string>((*list)[list->size() - 1]) += ")";
+    if(list->size())
+    std::accumulate(++list->begin(),
+        list->end(),
+        std::string(list->front()),
+        [](auto acc, auto val){
+            return acc+std::string(val);
+        }
+    );
+    result += ")";
     return result;
 }
 
