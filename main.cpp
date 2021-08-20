@@ -267,10 +267,31 @@ value_t node(Ts&&... args) {
 }
 
 
+
+
 int main()
 {
-    std::string str{"(10 2 4 (5 symbol true) \"string\" 5.6)"};
-    std::cout << str << '\n';
-    LispValue l = parse_lisp(str);
-    std::cout << static_cast<std::string>(l) << '\n' << std::flush;
+    std::string code{""};
+    auto brackets = 0;
+    std::string line;
+    while(true){
+      printf("[%d]>> ", brackets);
+      std::getline(std::cin,line);
+      for(const char ch : line){
+        if(ch == '(') ++brackets;
+        if(ch == ')') --brackets;
+      }
+      code += "\n" + line;
+      if (brackets == 0){
+        LispValue lisp = parse_lisp(code);
+        std::cout << static_cast<std::string>(lisp) << std::endl;
+        code = "";
+      }
+      if(brackets < 0){
+        printf("You have %d extra brackets in yor code", brackets);
+        brackets = 0;
+        code = "";
+      }
+    }
+
 }
