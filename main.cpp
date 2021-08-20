@@ -119,7 +119,7 @@ std::string list_to_string(list_t list)
     result.reserve(500);
     result += "(";
     if(list->size())
-    std::accumulate(++list->begin(),
+    result += std::accumulate(++list->begin(),
         list->end(),
         std::string(list->front()),
         [](auto acc, auto val){
