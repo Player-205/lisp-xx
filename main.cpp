@@ -115,6 +115,7 @@ struct LispValue
 
 std::string list_to_string(list_t list)
 {
+    if (!list) return "";
     std::string result;
     result.reserve(500);
     result += "(";
@@ -123,7 +124,7 @@ std::string list_to_string(list_t list)
         list->end(),
         std::string(list->front()),
         [](auto acc, auto val){
-            return acc+std::string(val);
+            return acc+" "+std::string(val);
         }
     );
     result += ")";
@@ -265,10 +266,19 @@ list_t list(Arg && ... args )
   return { LispValue{std::forward<Arg>(args)}...};
 }
 
+template<class... Ts>
+value_t node(Ts&&... args) {
+    std::vector<LispValue> a;
+    (a.push_back(args), ...);
+    return std::make_shared<std::vector<LispValue>>(a);
+}
+
 int main()
 {
     std::string str{"(10 2 4 (5 symbol true) \"string\" 5.6)"};
     std::cout << str << '\n';
     LispValue l = parse_string(str);
-    std::cout << static_cast<std::string>(l) << '\n';
+    std::cout << static_cast<std::string>(LispValue{node()}) << '\n' << std::flush;
+    std::cout << static_cast<std::string>(LispValue{list()}) << '\n' << std::flush;
+    std::cout << static_cast<std::string>(l) << '\n' << std::flush;
 }
