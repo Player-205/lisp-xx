@@ -26,7 +26,7 @@ int main()
         if(ch == '(') ++brackets;
         if(ch == ')') --brackets;
       }
-      code += "\n" + line;
+      code +=  line + '\n';
       if (brackets == 0){
         LispValue lisp = parse_lisp(code);
         std::cout << static_cast<std::string>(lisp) << std::endl;

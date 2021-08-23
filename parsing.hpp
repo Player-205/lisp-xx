@@ -47,7 +47,7 @@ bool is_number(std::string const &str, auto &&action) {
       was_dot = true;
       continue;
     }
-    if (!std::isdigit(static_cast<unsigned char>(str[i]))) {
+    if (!std::isdigit(str[i])) {
       return false;
     }
   }
@@ -104,12 +104,20 @@ inline LispValue parse_lisp(std::string const & input)
         lists_stack.top().emplace_back(val);
       };
       end_list_internal();
-      if(quoted) end_list_internal();
+      if(quoted) { 
+        end_list_internal();
+        quoted = false;
+      }
     };
     auto action = [&](auto && val) {
+      
       if(lists_stack.empty()) throw std::runtime_error("invalid syntax");
       lists_stack.top().emplace_back(val);
-      if(quoted) end_list();
+      if(quoted) 
+      {
+        end_list();
+        quoted = false;
+      }
     };
     auto new_list = [&](){
         lists_stack.push({});
@@ -154,7 +162,7 @@ inline LispValue parse_lisp(std::string const & input)
           && input[j] != '(' 
           && input[j] != ')' 
           && input[j] != ' ' 
-          && input[j] != '\r' 
+          && input[j] != '\t' 
           && input[j] != '\n' 
           && input[j] != '"' ; ++j, next())
         {
@@ -168,9 +176,8 @@ inline LispValue parse_lisp(std::string const & input)
       }
     }
   }
-  
   if(lists_stack.empty()) throw std::runtime_error("Parse error");
   list_t l = lists_stack.top();
-  if(l.size() == 1) return l[0];
+  if(l.size() == 1) {return l[0];}
   return LispValue{l};
 }

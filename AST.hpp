@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <numeric>
 #include <string>
 #include <variant>
@@ -100,6 +101,7 @@ struct LispValue : public value_t
     using value_t::value_t;
     operator std::string()
     {
+      
         return match(static_cast<value_t>(*this),
             [](list_t x)              { return list_to_string(x);                 },
             [](Symbol x)              { return x.value;                           },
