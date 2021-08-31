@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+
 #include <stack>
 #include <string>
 #include <vector>
@@ -86,6 +86,7 @@ inline LispValue parse_lisp(std::string const & input)
 {
 
   bool quoted = false;
+  bool is_list = false;
   std::stack<list_t> lists_stack;
   lists_stack.push({});
   size_t 
@@ -107,16 +108,17 @@ inline LispValue parse_lisp(std::string const & input)
       if(quoted) { 
         end_list_internal();
         quoted = false;
+        is_list = false;
       }
     };
     auto action = [&](auto && val) {
       
       if(lists_stack.empty()) throw std::runtime_error("invalid syntax");
       lists_stack.top().emplace_back(val);
-      if(quoted) 
+      if(quoted && !is_list) 
       {
-        end_list();
         quoted = false;
+        end_list();
       }
     };
     auto new_list = [&](){
@@ -132,6 +134,7 @@ inline LispValue parse_lisp(std::string const & input)
       continue;
       case '(':
       {
+        if(quoted) is_list = true;
         new_list();
         break;
       }
@@ -178,6 +181,7 @@ inline LispValue parse_lisp(std::string const & input)
   }
   if(lists_stack.empty()) throw std::runtime_error("Parse error");
   list_t l = lists_stack.top();
+  std::reverse(l.begin(), l.end());
   if(l.size() == 1) {return l[0];}
   return LispValue{l};
 }

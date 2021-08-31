@@ -5,7 +5,7 @@
 
 #include "AST.hpp"
 #include "parsing.hpp"
-
+#include "evaluation.hpp"
 
 
 template<class... Ts>
@@ -19,6 +19,7 @@ int main()
     std::string code{""};
     auto brackets = 0;
     std::string line;
+    Evaluator evaluator;
     while(true){
       printf("[%d]>> ", brackets);
       std::getline(std::cin,line);
@@ -29,7 +30,8 @@ int main()
       code +=  line + '\n';
       if (brackets == 0){
         LispValue lisp = parse_lisp(code);
-        std::cout << static_cast<std::string>(lisp) << std::endl;
+
+        std::cout << static_cast<std::string>(evaluator.eval(lisp)) << std::endl;
         code = "";
       }
       if(brackets < 0){
